@@ -1,10 +1,12 @@
 import { useState } from 'react'
 
-const OptionsIndex = () => {
-  const [data, setData] = useState<string[]>([])
+import { useStorage } from '@plasmohq/storage/hook'
 
-  const addData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setData([...data, e.target.value])
+const OptionsIndex = () => {
+  const [data, setData] = useStorage<string[]>('saveDeta', [])
+
+  const addData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await setData([...data, e.target.value])
   }
   return (
     <div>
