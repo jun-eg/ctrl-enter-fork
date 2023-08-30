@@ -1,0 +1,8 @@
+.urlListRow {
+  display: flex;
+  flex-direction: column;
+}
+
+.urlListRow img {
+  width: 18px;
+}
