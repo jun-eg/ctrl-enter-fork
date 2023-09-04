@@ -43,7 +43,6 @@ const OptionsIndex = () => {
         <button onClick={addData}>データ追加</button>
       </div>
       <h2>登録済み一覧</h2>
-
       <div className={styles.urlListRow}>
         {datas.map((data, i) => (
           <div key={i}>
