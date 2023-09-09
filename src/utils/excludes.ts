@@ -12,6 +12,7 @@ const isUrl = (link: string): boolean => {
 }
 
 export const addExcludes = async (link: string): Promise<string[] | null> => {
+  console.log('input', link)
   if (!isUrl(link)) return null
 
   const excludes = await storage.get<string[]>('excludedUrls')
