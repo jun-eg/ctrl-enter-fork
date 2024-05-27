@@ -1,24 +1,20 @@
+/* eslint-disable max-lines */
 import {
   IconBan,
   IconBrandBing,
   IconBrandDiscord,
+  IconBrandFacebook,
   IconBrandInstagram,
   IconBrandOpenai,
   IconBrandTwitter,
   IconBrandZoom,
   IconCamera,
   IconMessage,
-  IconSettings
+  IconSettings,
 } from '@tabler/icons-react'
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type MouseEvent
-} from 'react'
-import type { supportSitesList } from 'src/types/type'
-import { getConfig, saveConfig, supportSites } from 'src/utils/config'
+import { type ChangeEvent, type MouseEvent, useEffect, useMemo, useState } from 'react'
+import type { SupportSitesList } from 'src/types/type'
+import { getConfig, getSetting, saveConfig, saveSetting, supportSites } from 'src/utils/config'
 
 import styles from './index.module.css'
 
@@ -27,19 +23,32 @@ export const IndexPopup = () => {
   const [isChecked, setIsChecked] = useState<boolean>(false)
   const defaultAdaptedPages = ['https://www.threads.net/']
 
+  const [setting, setSetting] = useState<Record<string, boolean>>()
+
+  const fetchSetting = async () => {
+    const setting = await getSetting()
+    setSetting(setting)
+  }
+
+  useEffect(() => {
+    fetchSetting()
+  }, [fetchSetting])
+
+  chrome.storage.onChanged.addListener(() => {
+    fetchSetting()
+  })
+
   const openSettings = () => {
     chrome.runtime.openOptionsPage()
   }
 
-  const siteName = useMemo<supportSitesList | 'unknown'>(() => {
+  const siteName = useMemo<SupportSitesList | 'unknown'>(() => {
     const siteName = Object.keys(supportSites).find((key) => {
-      return supportSites[key as supportSitesList].some(
-        (item) => url?.includes(item)
-      )
-    }) as supportSitesList | undefined
+      return supportSites[key as SupportSitesList].some((item) => url?.includes(item))
+    }) as SupportSitesList | undefined
 
     return siteName ?? 'unknown'
-  }, [url, supportSites])
+  }, [url])
 
   const status = useMemo(() => {
     const isSupported = Object.values(supportSites).some((value) => {
@@ -58,7 +67,7 @@ export const IndexPopup = () => {
     const nowConfig = await getConfig()
     const newConfig = {
       ...nowConfig,
-      [siteName]: e.target.checked
+      [siteName]: e.target.checked,
     }
 
     await saveConfig(newConfig)
@@ -100,8 +109,16 @@ export const IndexPopup = () => {
     bard: <IconMessage />,
     meet: <IconCamera />,
     zoom: <IconBrandZoom />,
+    facebook: <IconBrandFacebook />,
+    claude: <IconMessage />,
+    unknown: <IconBan />,
+  }
 
-    unknown: <IconBan />
+  const changeSetting = async (key: string, e: ChangeEvent<HTMLInputElement>) => {
+    if (setting === undefined) return
+    const newSetting = { ...setting, [key]: e.target.checked }
+    setSetting(newSetting)
+    await saveSetting(newSetting)
   }
 
   if (url === null) {
@@ -112,22 +129,34 @@ export const IndexPopup = () => {
     <div className={styles.container}>
       <header className={styles.header}>
         <h1 className={styles.title}>ctrl + Enter</h1>
-        <div className={styles.icon} onClick={openSettings}>
+        <div className={styles.icon} onClick={openSettings} onKeyDown={openSettings}>
           <IconSettings />
         </div>
       </header>
       <main>
         {status === 'supported' && (
-          <div className={styles.input}>
-            <span>{icons[siteName]}</span>
-            <label htmlFor={siteName}>{siteName}</label>
-            <input
-              type="checkbox"
-              name={siteName}
-              id={siteName}
-              checked={isChecked}
-              onChange={check}
-            />
+          <div>
+            <div className={styles.input}>
+              <span>{icons[siteName]}</span>
+              <label htmlFor={siteName}>{siteName}</label>
+              <input
+                type="checkbox"
+                name={siteName}
+                id={siteName}
+                checked={isChecked}
+                onChange={check}
+              />
+            </div>
+            <div className={styles.input}>
+              <label htmlFor={`${siteName}setting`}>入力方法を表示する</label>
+              <input
+                type="checkbox"
+                name={`${siteName}setting`}
+                id={`${siteName}setting`}
+                checked={setting?.入力方法を表示する}
+                onChange={(e) => changeSetting('入力方法を表示する', e)}
+              />
+            </div>
           </div>
         )}
         {status === 'adapted' && (
@@ -137,7 +166,7 @@ export const IndexPopup = () => {
         )}
         {status === 'notSupported' && (
           <div>
-            <p>このサイトはctrl+Enterに対応していません</p>
+            <p>{`このサイトは拡張機能 'ctrl+Enter' に対応していません`}</p>
           </div>
         )}
       </main>
@@ -147,7 +176,8 @@ export const IndexPopup = () => {
           <a
             href="https://github.com/INIAD-developers/ctrl-enter/issues"
             className={styles.link}
-            onClick={openLink}>
+            onClick={openLink}
+          >
             GitHub
           </a>
         </p>

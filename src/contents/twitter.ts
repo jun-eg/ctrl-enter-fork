@@ -3,75 +3,89 @@ import { getConfig } from 'src/utils/config'
 import { key } from 'src/utils/key'
 
 export const config: PlasmoCSConfig = {
-  matches: [
-    'https://twitter.com/*',
-    'https://mobile.twitter.com/*',
-    'https://x.com/*'
-  ],
-  all_frames: true
+  matches: ['https://twitter.com/*', 'https://mobile.twitter.com/*', 'https://x.com/*'],
+  // biome-ignore lint/style/useNamingConvention: it's a key specified in plasmo-config
+  all_frames: true,
 }
 
-const isTextArea = (e: KeyboardEvent) => {
-  const target = e.target as HTMLElement
-  return target.role === 'textbox'
+const sendButton = (elm: HTMLElement) => {
+  const isMessage = elm.getAttribute('data-testid') === 'dmComposerTextInput'
+
+  if (isMessage) {
+    const button = document.querySelector('[role="button"][data-testid="dmComposerSendButton"]') as
+      | HTMLButtonElement
+      | undefined
+
+    return button
+  }
+
+  return undefined
 }
 
-const sendButton = {
-  message: (elm: HTMLElement) => {
-    const isMessage = elm.getAttribute('data-testid') === 'dmComposerTextInput'
-
-    if (isMessage) {
-      const button = document.querySelector(
-        '[role="button"][data-testid="dmComposerSendButton"]'
-      ) as HTMLButtonElement | undefined
-
-      return button
-    }
-
-    return undefined
+const handleKeyEventInDm = (e: KeyboardEvent) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.target?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        which: 13,
+        keyCode: 13,
+        bubbles: true,
+        shiftKey: true,
+        composed: true,
+        view: window,
+      }),
+    )
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
+  } else if (key(e) === 'ctrlEnter') {
+    const target = e.target as HTMLElement
+    sendButton(target)?.click()
   }
 }
 
-const addEvent = () => {
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (isTextArea(e)) {
-        if (key(e) === 'ctrlEnter') {
-          const target = e.target as HTMLElement
-          sendButton.message(target)?.click()
-        } else if (key(e) === 'enter') {
-          e.stopPropagation()
-        }
-      }
-    },
-    { capture: true }
-  )
+const isInDirectMessagePage = () => {
+  const pageUrl = location.href
+  return pageUrl.includes('message')
 }
 
-chrome.storage.onChanged.addListener(async () => {
-  alert('changed')
+const messageElem = (): HTMLElement | null => {
+  if (isInDirectMessagePage()) {
+    return document.querySelector('main')
+  }
+  return document.querySelector('[data-testid~="DMDrawer"]')
+}
+
+const handleAddDmEvent = () => {
+  const elem = messageElem()
+  if (elem !== null && elem.onkeydown === null) {
+    elem.onkeydown = handleKeyEventInDm
+  }
+}
+
+const handleRemoveDmEvent = () => {
+  const elem = messageElem()
+  if (elem !== null) {
+    elem.onkeydown = null
+  }
+}
+
+window.addEventListener('keydown', async () => {
+  handleRemoveDmEvent()
   const config = await getConfig()
   const twitterConfig = config.twitter
-
   if (twitterConfig) {
-    addEvent()
-  } else {
-    document.removeEventListener(
-      'keydown',
-      (e) => {
-        if (isTextArea(e)) {
-          if (key(e) === 'ctrlEnter') {
-            const target = e.target as HTMLElement
-            sendButton.message(target)?.click()
-          } else if (key(e) === 'enter') {
-            e.stopPropagation()
-          }
-        }
-      },
-      { capture: true }
-    )
+    handleAddDmEvent()
   }
 })
 
-addEvent()
+chrome.storage.onChanged.addListener(async () => {
+  const config = await getConfig()
+  const twitterConfig = config.twitter
+  if (twitterConfig) {
+    handleAddDmEvent()
+  } else {
+    handleRemoveDmEvent()
+  }
+})
